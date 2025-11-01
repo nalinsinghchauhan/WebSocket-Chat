@@ -1,0 +1,22 @@
+# Ignore files that don't need to be in Docker image
+target/
+.git/
+.gitignore
+.mvn/
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+*.log
+README.md
+DEPLOYMENT.md
+QUICK_DEPLOY.md
+POSTGRESQL_SETUP.md
+RENDER_BUILD_FIX.md
+RENDER_ENVIRONMENT_VARS.md
+RENDER_DEPLOYMENT_SUMMARY.md
+GIT_SETUP.md
+render.yaml
+
