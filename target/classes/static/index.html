@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat - Advanced</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SockJS Client CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <!-- STOMP.js Client CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #a8a8a8;
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Login/Register Page -->
+    <div id="auth-page" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
+            <h2 id="auth-title" class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
+            <form id="authForm">
+                <div class="mb-4">
+                    <input type="text" id="auth-username" placeholder="Username" autocomplete="off"
+                           class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                </div>
+                <div class="mb-4">
+                    <input type="password" id="auth-password" placeholder="Password" autocomplete="off"
+                           class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                </div>
+                <button type="submit" id="auth-submit"
+                        class="w-full bg-blue-500 text-white p-3 rounded-md font-semibold hover:bg-blue-600 transition-colors duration-200">
+                    Login
+                </button>
+            </form>
+            <p class="mt-4 text-center text-sm">
+                <span id="auth-switch-text">Don't have an account? </span>
+                <button id="auth-switch" class="text-blue-500 hover:underline">Register</button>
+            </p>
+            <div id="auth-error" class="mt-2 text-red-500 text-sm text-center hidden"></div>
+        </div>
+    </div>
+
+    <!-- Main Chat Application -->
+    <div id="main-app" class="hidden min-h-screen p-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">WebSocket Chat</h1>
+                    <p class="text-sm text-gray-600">Logged in as: <span id="logged-in-user"></span></p>
+                </div>
+                <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-600">
+                    Logout
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Sidebar: Rooms & Users -->
+                <div class="space-y-4">
+                    <!-- Rooms Panel -->
+                    <div class="bg-white rounded-lg shadow-md p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-gray-800">Chat Rooms</h3>
+                            <button id="create-room-btn" class="text-blue-500 hover:text-blue-700 text-sm">+ New</button>
+                        </div>
+                        <div id="rooms-list" class="space-y-2 scrollbar-thin max-h-64 overflow-y-auto">
+                            <!-- Rooms will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Private Messages Panel -->
+                    <div class="bg-white rounded-lg shadow-md p-4">
+                        <h3 class="font-bold text-gray-800 mb-4">Private Messages</h3>
+                        <div id="dm-users-list" class="space-y-2 scrollbar-thin max-h-64 overflow-y-auto">
+                            <!-- DM users will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Chat Area -->
+                <div class="md:col-span-3">
+                    <div class="bg-white rounded-lg shadow-md flex flex-col" style="height: calc(100vh - 200px);">
+                        <!-- Chat Header -->
+                        <div class="p-4 border-b bg-gray-50 flex justify-between items-center rounded-t-lg">
+                            <div>
+                                <h3 id="current-chat-title" class="text-xl font-bold text-gray-800">Select a room or user</h3>
+                                <p id="current-chat-subtitle" class="text-sm text-gray-600"></p>
+                            </div>
+                            <button id="leave-current-chat" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-600 hidden">
+                                Leave
+                            </button>
+                        </div>
+
+                        <!-- Message Area -->
+                        <ul id="messageArea" class="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
+                            <!-- Messages will be appended here -->
+                        </ul>
+
+                        <!-- Message Input Form -->
+                        <form id="messageForm" class="p-4 border-t bg-gray-50 rounded-b-lg flex gap-3">
+                            <input type="text" id="message" placeholder="Type your message..." autocomplete="off"
+                                   class="flex-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <button type="submit" id="send-btn"
+                                    class="bg-green-500 text-white p-3 px-6 rounded-md font-semibold hover:bg-green-600 transition-colors duration-200">
+                                Send
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Create New Room</h3>
+            <form id="create-room-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Room Name</label>
+                    <input type="text" id="room-name" placeholder="Room name" autocomplete="off"
+                           class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <input type="text" id="room-description" placeholder="Room description" autocomplete="off"
+                           class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-blue-500 text-white p-3 rounded-md font-semibold hover:bg-blue-600">
+                        Create
+                    </button>
+                    <button type="button" id="cancel-create-room" class="flex-1 bg-gray-300 text-gray-800 p-3 rounded-md font-semibold hover:bg-gray-400">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        'use strict';
+
+        // State
+        let stompClient = null;
+        let currentUser = null;
+        let jwtToken = null;
+        let currentRoom = null;
+        let currentDmUser = null;
+        let rooms = [];
+        let subscribedRooms = new Set();
+        let subscribedDms = new Set();
+
+        // DOM Elements
+        const authPage = document.querySelector('#auth-page');
+        const mainApp = document.querySelector('#main-app');
+        const authForm = document.querySelector('#authForm');
+        const authTitle = document.querySelector('#auth-title');
+        const authSubmit = document.querySelector('#auth-submit');
+        const authSwitch = document.querySelector('#auth-switch');
+        const authSwitchText = document.querySelector('#auth-switch-text');
+        const authError = document.querySelector('#auth-error');
+        const loggedInUser = document.querySelector('#logged-in-user');
+        const logoutBtn = document.querySelector('#logout-btn');
+        const roomsList = document.querySelector('#rooms-list');
+        const createRoomBtn = document.querySelector('#create-room-btn');
+        const createRoomModal = document.querySelector('#create-room-modal');
+        const createRoomForm = document.querySelector('#create-room-form');
+        const cancelCreateRoom = document.querySelector('#cancel-create-room');
+        const messageArea = document.querySelector('#messageArea');
+        const messageForm = document.querySelector('#messageForm');
+        const messageInput = document.querySelector('#message');
+        const currentChatTitle = document.querySelector('#current-chat-title');
+        const currentChatSubtitle = document.querySelector('#current-chat-subtitle');
+        const leaveCurrentChat = document.querySelector('#leave-current-chat');
+        const dmUsersList = document.querySelector('#dm-users-list');
+
+        let isRegisterMode = false;
+
+        // Auth Switch
+        authSwitch.addEventListener('click', () => {
+            isRegisterMode = !isRegisterMode;
+            authTitle.textContent = isRegisterMode ? 'Register' : 'Login';
+            authSubmit.textContent = isRegisterMode ? 'Register' : 'Login';
+            authSwitchText.textContent = isRegisterMode ? 'Already have an account? ' : "Don't have an account? ";
+            authError.classList.add('hidden');
+        });
+
+        // Auth Form Submit
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authError.classList.add('hidden');
+            
+            const username = document.querySelector('#auth-username').value.trim();
+            const password = document.querySelector('#auth-password').value.trim();
+
+            const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    jwtToken = data.token;
+                    currentUser = data.username;
+                    localStorage.setItem('jwtToken', jwtToken);
+                    localStorage.setItem('username', currentUser);
+                    await initializeApp();
+                } else {
+                    authError.textContent = data.message || 'Authentication failed';
+                    authError.classList.remove('hidden');
+                }
+            } catch (error) {
+                authError.textContent = 'Error: ' + error.message;
+                authError.classList.remove('hidden');
+            }
+        });
+
+        // Logout
+        logoutBtn.addEventListener('click', () => {
+            if (stompClient) {
+                stompClient.disconnect();
+            }
+            localStorage.removeItem('jwtToken');
+            localStorage.removeItem('username');
+            jwtToken = null;
+            currentUser = null;
+            authPage.classList.remove('hidden');
+            mainApp.classList.add('hidden');
+        });
+
+        // Create Room Modal
+        createRoomBtn.addEventListener('click', () => {
+            createRoomModal.classList.remove('hidden');
+        });
+
+        cancelCreateRoom.addEventListener('click', () => {
+            createRoomModal.classList.add('hidden');
+            createRoomForm.reset();
+        });
+
+        createRoomForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.querySelector('#room-name').value.trim();
+            const description = document.querySelector('#room-description').value.trim();
+
+            try {
+                const response = await fetch('/api/rooms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwtToken}`
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+
+                if (response.ok) {
+                    createRoomModal.classList.add('hidden');
+                    createRoomForm.reset();
+                    await loadRooms();
+                } else {
+                    alert('Error creating room');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Message Form
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const content = messageInput.value.trim();
+            if (!content || (!currentRoom && !currentDmUser)) return;
+
+            const messageDTO = {
+                type: currentRoom ? 'CHAT' : 'DM',
+                content: content,
+                roomName: currentRoom,
+                recipient: currentDmUser
+            };
+
+            if (currentRoom) {
+                stompClient.send('/app/chat/send', {}, JSON.stringify(messageDTO));
+            } else if (currentDmUser) {
+                stompClient.send('/app/dm/send', {}, JSON.stringify(messageDTO));
+            }
+
+            messageInput.value = '';
+        });
+
+        // Leave Current Chat
+        leaveCurrentChat.addEventListener('click', () => {
+            if (currentRoom) {
+                const messageDTO = { type: 'LEAVE', roomName: currentRoom };
+                stompClient.send('/app/chat/leave', {}, JSON.stringify(messageDTO));
+                unsubscribeFromRoom(currentRoom);
+            }
+            currentRoom = null;
+            currentDmUser = null;
+            messageArea.innerHTML = '';
+            currentChatTitle.textContent = 'Select a room or user';
+            currentChatSubtitle.textContent = '';
+            leaveCurrentChat.classList.add('hidden');
+        });
+
+        // Initialize App
+        async function initializeApp() {
+            // Check for stored token
+            const storedToken = localStorage.getItem('jwtToken');
+            const storedUsername = localStorage.getItem('username');
+            
+            if (storedToken && storedUsername) {
+                jwtToken = storedToken;
+                currentUser = storedUsername;
+            }
+
+            if (!jwtToken || !currentUser) {
+                return;
+            }
+
+            authPage.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            loggedInUser.textContent = currentUser;
+
+            await loadRooms();
+            connectWebSocket();
+        }
+
+        // Load Rooms
+        async function loadRooms() {
+            try {
+                const response = await fetch('/api/rooms', {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                
+                if (response.ok) {
+                    rooms = await response.json();
+                    renderRooms();
+                }
+            } catch (error) {
+                console.error('Error loading rooms:', error);
+            }
+        }
+
+        // Render Rooms
+        function renderRooms() {
+            roomsList.innerHTML = '';
+            rooms.forEach(room => {
+                const roomEl = document.createElement('div');
+                roomEl.className = `p-2 rounded cursor-pointer hover:bg-gray-100 ${currentRoom === room.name ? 'bg-blue-100' : ''}`;
+                roomEl.innerHTML = `
+                    <div class="font-semibold">${room.name}</div>
+                    <div class="text-xs text-gray-600">${room.description || 'No description'}</div>
+                `;
+                roomEl.addEventListener('click', () => joinRoom(room.name));
+                roomsList.appendChild(roomEl);
+            });
+        }
+
+        // Join Room
+        function joinRoom(roomName) {
+            if (currentRoom === roomName) return;
+            
+            currentRoom = roomName;
+            currentDmUser = null;
+            
+            const messageDTO = { type: 'JOIN', roomName: roomName };
+            stompClient.send('/app/chat/join', {}, JSON.stringify(messageDTO));
+            
+            subscribeToRoom(roomName);
+            currentChatTitle.textContent = `Room: ${roomName}`;
+            currentChatSubtitle.textContent = '';
+            leaveCurrentChat.classList.remove('hidden');
+            messageArea.innerHTML = '';
+        }
+
+        // Subscribe to Room
+        function subscribeToRoom(roomName) {
+            if (subscribedRooms.has(roomName)) return;
+            
+            stompClient.subscribe(`/topic/room.${roomName}`, (payload) => {
+                const message = JSON.parse(payload.body);
+                if (currentRoom === roomName) {
+                    displayMessage(message);
+                }
+            });
+            subscribedRooms.add(roomName);
+        }
+
+        // Unsubscribe from Room
+        function unsubscribeFromRoom(roomName) {
+            // Note: STOMP.js doesn't have a direct unsubscribe method per subscription
+            // This is handled by the disconnect/reconnect cycle
+            subscribedRooms.delete(roomName);
+        }
+
+        // Connect WebSocket
+        function connectWebSocket() {
+            // Use relative URL - works for both local development and production (Render)
+            // SockJS automatically handles HTTP/HTTPS and WebSocket/WSS
+            const wsUrl = `/ws?token=${jwtToken}`;
+            const socket = new SockJS(wsUrl);
+            stompClient = Stomp.over(socket);
+            
+            stompClient.connect({}, (frame) => {
+                console.log('Connected: ' + frame);
+                
+                // Subscribe to private messages
+                stompClient.subscribe(`/user/${currentUser}/queue/messages`, (payload) => {
+                    const message = JSON.parse(payload.body);
+                    if (message.type === 'DM') {
+                        if (currentDmUser === message.sender) {
+                            displayMessage(message);
+                        } else {
+                            // Show notification for new DM
+                            addDmUserToList(message.sender);
+                        }
+                    }
+                });
+
+                // Subscribe to read receipts
+                stompClient.subscribe(`/user/${currentUser}/queue/read-receipts`, (payload) => {
+                    const receipt = JSON.parse(payload.body);
+                    updateReadReceipt(receipt);
+                });
+
+                // Auto-join first room if available
+                if (rooms.length > 0 && !currentRoom) {
+                    joinRoom(rooms[0].name);
+                }
+            }, (error) => {
+                console.error('WebSocket connection error:', error);
+                setTimeout(connectWebSocket, 5000);
+            });
+        }
+
+        // Display Message
+        function displayMessage(message) {
+            const messageEl = document.createElement('li');
+            
+            if (message.type === 'JOIN' || message.type === 'LEAVE') {
+                messageEl.className = 'text-center text-gray-500 text-sm my-2';
+                messageEl.textContent = `${message.sender} ${message.type === 'JOIN' ? 'joined' : 'left'}${message.roomName ? ' the room' : ''}`;
+            } else {
+                messageEl.className = 'flex flex-col mb-3';
+                const isMyMessage = message.sender === currentUser;
+                messageEl.classList.add(isMyMessage ? 'items-end' : 'items-start');
+
+                const container = document.createElement('div');
+                container.className = 'flex items-start gap-2 max-w-xs md:max-w-md';
+
+                // Avatar
+                const avatar = document.createElement('div');
+                avatar.className = `w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-semibold ${getAvatarColor(message.sender)}`;
+                avatar.textContent = message.sender[0].toUpperCase();
+
+                // Text bubble
+                const bubble = document.createElement('div');
+                bubble.className = `p-3 rounded-lg break-words ${isMyMessage ? 'bg-blue-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-900 rounded-bl-none'}`;
+
+                if (!isMyMessage) {
+                    const senderName = document.createElement('span');
+                    senderName.className = 'block text-xs font-semibold mb-1 text-gray-600';
+                    senderName.textContent = message.sender;
+                    bubble.appendChild(senderName);
+                }
+
+                const content = document.createElement('p');
+                content.textContent = message.content;
+                bubble.appendChild(content);
+
+                // Timestamp
+                if (message.timestamp) {
+                    const timestamp = document.createElement('span');
+                    timestamp.className = `text-xs mt-1 block ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`;
+                    timestamp.textContent = formatTimestamp(message.timestamp);
+                    bubble.appendChild(timestamp);
+                }
+
+                // Read receipt indicator
+                if (isMyMessage && message.readAt) {
+                    const readIndicator = document.createElement('span');
+                    readIndicator.className = 'text-xs text-green-300 mt-1';
+                    readIndicator.textContent = '✓ Read';
+                    bubble.appendChild(readIndicator);
+                }
+
+                if (isMyMessage) {
+                    container.appendChild(bubble);
+                    container.appendChild(avatar);
+                } else {
+                    container.appendChild(avatar);
+                    container.appendChild(bubble);
+                }
+
+                messageEl.appendChild(container);
+            }
+
+            messageArea.appendChild(messageEl);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        // Update Read Receipt
+        function updateReadReceipt(receipt) {
+            const messages = messageArea.querySelectorAll('li');
+            messages.forEach(msgEl => {
+                const bubble = msgEl.querySelector('.bg-blue-500');
+                if (bubble && receipt.messageId) {
+                    // Check if this is the message
+                    const content = bubble.querySelector('p')?.textContent;
+                    if (content) {
+                        const readIndicator = bubble.querySelector('.text-green-300') || document.createElement('span');
+                        if (!bubble.querySelector('.text-green-300')) {
+                            readIndicator.className = 'text-xs text-green-300 mt-1';
+                            readIndicator.textContent = '✓ Read';
+                            bubble.appendChild(readIndicator);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Add DM User to List
+        function addDmUserToList(username) {
+            if (username === currentUser) return;
+            
+            let userEl = dmUsersList.querySelector(`[data-username="${username}"]`);
+            if (!userEl) {
+                userEl = document.createElement('div');
+                userEl.className = `p-2 rounded cursor-pointer hover:bg-gray-100 ${currentDmUser === username ? 'bg-blue-100' : ''}`;
+                userEl.setAttribute('data-username', username);
+                userEl.textContent = username;
+                userEl.addEventListener('click', () => startDm(username));
+                dmUsersList.appendChild(userEl);
+            }
+        }
+
+        // Start DM
+        function startDm(username) {
+            currentDmUser = username;
+            currentRoom = null;
+            currentChatTitle.textContent = `DM: ${username}`;
+            currentChatSubtitle.textContent = 'Private conversation';
+            leaveCurrentChat.classList.remove('hidden');
+            messageArea.innerHTML = '';
+            
+            // Update active state
+            dmUsersList.querySelectorAll('div').forEach(el => {
+                el.classList.toggle('bg-blue-100', el.getAttribute('data-username') === username);
+            });
+        }
+
+        // Format Timestamp
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Get Avatar Color
+        const colors = [
+            'bg-red-200 text-red-800', 'bg-green-200 text-green-800', 'bg-blue-200 text-blue-800',
+            'bg-yellow-200 text-yellow-800', 'bg-purple-200 text-purple-800', 'bg-pink-200 text-pink-800'
+        ];
+        function getAvatarColor(username) {
+            let hash = 0;
+            for (let i = 0; i < username.length; i++) {
+                hash = 31 * hash + username.charCodeAt(i);
+            }
+            return colors[Math.abs(hash % colors.length)];
+        }
+
+        // Mark message as read when viewing
+        function markMessageAsRead(messageId) {
+            if (!messageId) return;
+            stompClient.send('/app/dm/read', {}, JSON.stringify({ messageId: messageId }));
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
