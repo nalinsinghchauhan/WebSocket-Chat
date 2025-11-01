@@ -67,7 +67,8 @@ The application is already configured to use environment variables. Make sure:
 
 2. **Configure the Service**
    - **Name**: `websocket-chat` (or your preferred name)
-   - **Environment**: `Java`
+   - **Environment**: Choose "Web Service" (Render auto-detects Java from pom.xml)
+     - If prompted for Runtime, select "Maven" or "Java"
    - **Build Command**: `mvn clean package -DskipTests`
    - **Start Command**: `java -jar target/websocket-chat-0.0.1-SNAPSHOT.jar`
 
@@ -75,20 +76,41 @@ The application is already configured to use environment variables. Make sure:
    Click "Environment" tab and add:
    ```
    SPRING_PROFILES_ACTIVE=production
-   SPRING_DATASOURCE_URL=<your-database-connection-string>
-   SPRING_DATASOURCE_USERNAME=<database-username>
-   SPRING_DATASOURCE_PASSWORD=<database-password>
+   SPRING_DATASOURCE_URL=<see-instructions-below>
+   SPRING_DATASOURCE_USERNAME=<see-instructions-below>
+   SPRING_DATASOURCE_PASSWORD=<see-instructions-below>
    JWT_SECRET=<generate-a-long-random-string-here>
    JWT_EXPIRATION=86400000
    ```
+
+   **Where to get database values:**
+   1. Go to your PostgreSQL database service in Render dashboard
+   2. Click on the database name
+   3. Look for "Connections" or "Connection Info" section
+   4. You'll see "Internal Database URL" like:
+      `postgresql://username:password@hostname:port/database`
+   
+   5. **Convert to environment variables:**
+      - **SPRING_DATASOURCE_URL**: Convert to JDBC format
+        - From: `postgresql://host:port/database`
+        - To: `jdbc:postgresql://host:port/database?sslmode=require`
+        - Example: `jdbc:postgresql://dpg-abc123.oregon-postgres.render.com:5432/websocket_chat_xyz?sslmode=require`
+      
+      - **SPRING_DATASOURCE_USERNAME**: Extract from Internal Database URL
+        - The part before `:` in `postgresql://username:password@...`
+      
+      - **SPRING_DATASOURCE_PASSWORD**: Click "Show" next to password field
+        - Copy the password (usually a long random string)
 
    **To generate a secure JWT_SECRET:**
    ```bash
    # On Linux/Mac:
    openssl rand -base64 32
    
-   # Or use an online generator
+   # Or use an online generator: https://randomkeygen.com/
    ```
+   
+   **See RENDER_ENVIRONMENT_VARS.md for detailed examples!**
 
 4. **Important Settings**
    - **Region**: Choose closest to your users

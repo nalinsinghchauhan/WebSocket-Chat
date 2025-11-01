@@ -48,19 +48,31 @@ git push -u origin main
 2. Connect GitHub and select your repository
 3. Configure:
    - **Name**: `websocket-chat`
-   - **Environment**: `Java`
+   - **Environment**: Choose "Web Service" (Render auto-detects Java from pom.xml)
    - **Build Command**: `mvn clean package -DskipTests`
    - **Start Command**: `java -jar target/websocket-chat-0.0.1-SNAPSHOT.jar`
+   - If prompted for Runtime, select "Maven" or "Java"
 
-4. **Add Environment Variables**:
+4. **Add Environment Variables** (click "Environment" tab):
    ```
    SPRING_PROFILES_ACTIVE=production
-   SPRING_DATASOURCE_URL=<from-database-settings>
-   SPRING_DATASOURCE_USERNAME=<from-database-settings>
-   SPRING_DATASOURCE_PASSWORD=<from-database-settings>
+   SPRING_DATASOURCE_URL=<see-instructions-below>
+   SPRING_DATASOURCE_USERNAME=<see-instructions-below>
+   SPRING_DATASOURCE_PASSWORD=<see-instructions-below>
    JWT_SECRET=<generate-random-string>
    JWT_EXPIRATION=86400000
    ```
+
+   **How to get database values:**
+   1. In Render dashboard, click on your PostgreSQL database
+   2. Scroll to "Connections" section
+   3. Find:
+      - **SPRING_DATASOURCE_URL**: Use "Internal Database URL" 
+        - It looks like: `postgresql://user:password@host:port/database`
+        - Convert to JDBC format: `jdbc:postgresql://host:port/database?sslmode=require`
+        - Replace `<host>`, `<port>`, `<database>` from the URL
+      - **SPRING_DATASOURCE_USERNAME**: The username in the connection string
+      - **SPRING_DATASOURCE_PASSWORD**: The password (click "Show" to reveal)
 
 5. **Generate JWT_SECRET**:
    ```bash
